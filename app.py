@@ -1,72 +1,64 @@
 import streamlit as st
-from gtts import gTTS
-import base64
+import io
 import os
+from huggingface_hub import InferenceClient
 
-# -------------------------------
-# Title and description
-# -------------------------------
-st.set_page_config(page_title="EchoVerse", layout="centered")
-st.title("🎧 EchoVerse - AI Audiobook Creator")
-st.write("Transform your text into expressive, natural-sounding audio with customizable tones.")
+st.title("🎤 Human-like TTS with Hugging Face InferenceClient")
 
-# -------------------------------
-# File upload or text input
-# -------------------------------
-uploaded_file = st.file_uploader("Upload a .txt file", type=["txt"])
-text_input = ""
+# Set your HF API key in an environment variable: HF_TOKEN
+HF_API_KEY = os.getenv("HF_TOKEN")
+if not HF_API_KEY:
+    st.error("Please set your Hugging Face API key in the HF_TOKEN environment variable.")
+    st.stop()
 
-if uploaded_file:
-    text_input = uploaded_file.read().decode("utf-8")
-else:
-    text_input = st.text_area("Or paste your text below:", height=200)
-
-# -------------------------------
-# Tone Selection
-# -------------------------------
-tone = st.radio(
-    "Select Tone for Narration:",
-    ["Neutral", "Suspenseful", "Inspiring"],
-    index=0
+client = InferenceClient(
+    provider="fal-ai",
+    api_key=HF_API_KEY,
 )
 
-# -------------------------------
-# Tone-based rewriting (placeholder)
-# -------------------------------
-def rewrite_text(original_text, tone):
-    # 🔹 Placeholder for IBM Watsonx Granite LLM integration
-    if tone == "Neutral":
-        return original_text
-    elif tone == "Suspenseful":
-        return "🔹 [Suspenseful Rewrite] " + original_text
-    elif tone == "Inspiring":
-        return "✨ [Inspiring Rewrite] " + original_text
-    return original_text
+# ---------------- Streamlit Inputs ----------------
+text_input = st.text_area("Enter text manually:", "The answer to the universe is 42")
 
-# -------------------------------
-# Generate Audio
-# -------------------------------
-if st.button("Generate Audio"):
-    if text_input.strip():
-        rewritten_text = rewrite_text(text_input, tone)
+uploaded_file = st.file_uploader("Or upload a TXT file:", type=["txt"])
+if uploaded_file is not None:
+    text_input = uploaded_file.read().decode("utf-8")
+    st.success("TXT file loaded successfully!")
 
-        # Generate speech with gTTS
-        tts = gTTS(text=rewritten_text, lang="en")
-        filename = "output.mp3"
-        tts.save(filename)
+# Add Tone and Gender selection widgets (These won't affect the current model but can be used for other models)
+st.subheader("Select Voice Parameters")
 
-        # Play audio in app
-        audio_file = open(filename, "rb").read()
-        st.audio(audio_file, format="audio/mp3")
+selected_gender = st.selectbox(
+    "Choose a gender:",
+    ("male", "female")
+)
 
-        # Download link
-        b64 = base64.b64encode(audio_file).decode()
-        href = f'<a href="data:audio/mp3;base64,{b64}" download="{filename}">⬇️ Download Audio</a>'
-        st.markdown(href, unsafe_allow_html=True)
+selected_tone = st.selectbox(
+    "Choose a tone:",
+    ("normal", "funny", "joyful", "calm", "emphatic", "angry")
+)
 
-        # Show rewritten text for reference
-        with st.expander("📖 View Rewritten Text"):
-            st.write(rewritten_text)
+# ---------------- TTS Generation ----------------
+if st.button("Generate Speech"):
+    if text_input.strip() == "":
+        st.warning("Please enter some text or upload a TXT file!")
     else:
-        st.warning("⚠️ Please provide some text to generate audio.")
+        with st.spinner("Generating speech..."):
+            try:
+                # Corrected: Removed unsupported 'gender' and 'tone' parameters
+                audio_bytes = client.text_to_speech(
+                    text_input,
+                    model="nari-labs/Dia-1.6B"
+                )
 
+                audio_file = io.BytesIO(audio_bytes)
+
+                st.success("Audio generated successfully!")
+                st.audio(audio_file, format="audio/wav")
+                st.download_button(
+                    "⬇ Download Audio",
+                    audio_file,
+                    file_name="speech.wav",
+                    mime="audio/wav"
+                )
+            except Exception as e:
+                st.error(f"Failed to generate audio: {e}")
