@@ -11,6 +11,7 @@ if not HF_API_KEY:
     st.error("Please set your Hugging Face API key in the HF_TOKEN environment variable.")
     st.stop()
 
+# Initialize the InferenceClient with the "fal-ai" provider
 client = InferenceClient(
     provider="fal-ai",
     api_key=HF_API_KEY,
@@ -24,17 +25,12 @@ if uploaded_file is not None:
     text_input = uploaded_file.read().decode("utf-8")
     st.success("TXT file loaded successfully!")
 
-# Add Tone and Gender selection widgets (These won't affect the current model but can be used for other models)
+# Add Tone selection widget
 st.subheader("Select Voice Parameters")
-
-selected_gender = st.selectbox(
-    "Choose a gender:",
-    ("male", "female")
-)
 
 selected_tone = st.selectbox(
     "Choose a tone:",
-    ("normal", "funny", "joyful", "calm", "emphatic", "angry")
+    ("netrual", "suspence", "inspiring")
 )
 
 # ---------------- TTS Generation ----------------
@@ -44,10 +40,10 @@ if st.button("Generate Speech"):
     else:
         with st.spinner("Generating speech..."):
             try:
-                # Corrected: Removed unsupported 'gender' and 'tone' parameters
+                # Use the ResembleAI/chatterbox model as requested
                 audio_bytes = client.text_to_speech(
                     text_input,
-                    model="nari-labs/Dia-1.6B"
+                    model="ResembleAI/chatterbox"
                 )
 
                 audio_file = io.BytesIO(audio_bytes)
